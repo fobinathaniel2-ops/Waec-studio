@@ -15,10 +15,16 @@ module.exports = async (req, res) => {
     const anchor = `Stay strictly on this subject and this topic. Never include content, facts or formulas from any other subject.`;
     const noForm = NOFORM.test(subject), isHist = /history|government|social/i.test(subject);
 
-    const lesson = `You are an excellent, patient teacher. ${ctx} ${anchor}
-Teach this topic so a ${level} student understands it perfectly. Use very simple English suited to that class, define every new word, and use everyday examples from West Africa. Cover ALL the areas of this topic that the ${level} syllabus expects, in a logical order from basics to harder ideas (5-6 sections, each explanation 60-100 words, short clear sentences, explaining the "why" not just the "what"). If the subject involves calculations, give 2 worked examples with step-by-step solutions; otherwise give 1 model exam answer. If the topic is historical or has a sequence of events, also fill "timeline" (6-12 entries), otherwise leave it as an empty list.
-Reply with ONLY valid JSON starting with { and ending with }. No markdown, no commentary, no thinking text. Inside text values never use double quotes (use single quotes instead, including in code) and write any code on one line. Keep it compact:
-{"title":"...","overview":"2-3 simple sentences on what this topic is and why it matters","objectives":["You will be able to..."],"sections":[{"heading":"...","explanation":"...","examples":["..."],"key_points":["..."]}],"timeline":[{"when":"year or period","what":"event"}],"worked_examples":[{"question":"...","solution":"step-by-step"}],"key_terms":[{"term":"...","meaning":"..."}],"summary":["..."]}`;
+    const base = `You are an excellent, patient teacher. ${ctx} ${anchor}
+Teach this topic so a ${level} student understands it perfectly. Use very simple English suited to that class, define every new word, and use everyday examples from West Africa. Explain the "why" not just the "what", in short clear sentences.
+Reply with ONLY valid JSON starting with { and ending with }. No markdown, no commentary, no thinking text. Inside text values never use double quotes (use single quotes instead, including in code) and write any code on one line. Keep it compact.`;
+    // The lesson is written as two halves at the same time, so it finishes about twice as fast.
+    const lessonA = `${base}
+Write the FIRST HALF of the lesson: the basics and foundations of the topic. Give 3 sections (each explanation 60-100 words). If the topic is historical or has a sequence of events, also fill "timeline" (6-10 entries), otherwise leave it as an empty list.
+{"title":"...","overview":"2-3 simple sentences on what this topic is and why it matters","objectives":["You will be able to..."],"sections":[{"heading":"...","explanation":"...","examples":["..."],"key_points":["..."]}],"timeline":[{"when":"year or period","what":"event"}]}`;
+    const lessonB = `${base}
+Write the SECOND HALF of the lesson: the later, harder and exam-focused parts of the topic that come AFTER the basics (do not repeat the basics). Give 3 sections (each explanation 60-100 words). ${noForm ? 'Give 1 model exam answer in worked_examples.' : 'If the subject involves calculations, give 2 worked examples with step-by-step solutions; otherwise give 1 model exam answer.'}
+{"sections":[{"heading":"...","explanation":"...","examples":["..."],"key_points":["..."]}],"worked_examples":[{"question":"...","solution":"step-by-step"}],"key_terms":[{"term":"...","meaning":"..."}],"summary":["..."]}`;
 
     const factRule = noForm
       ? `This subject has NO calculation formulas. Set "formulas" to [] and "no_formula_note" to "none". Instead fill "definitions" with 10-15 key facts a student must memorise for this exact topic: laws, acts, institutions, important names, dates, causes and effects, and key terms${isHist ? '. Also fill "timeline" with the key dates and events for this topic' : ''}.`
@@ -31,7 +37,12 @@ Keep every other point short and clear. Reply with ONLY valid JSON starting with
 
     const full = k => Array.isArray(k) && k.length > 0;
     const check = b.mode === 'tips' ? v => ['must_know', 'formulas', 'definitions', 'timeline', 'exam_tips', 'checklist'].some(k => full(v[k])) : v => full(v.sections);
-    const out = await askJSON([{ type: 'text', text: b.mode === 'tips' ? tips : lesson }], 10000, '{', check);
+    let out;
+    if (b.mode === 'tips') out = await askJSON([{ type: 'text', text: tips }], 10000, '{', check);
+    else {
+      const [x, y] = await Promise.all([lessonA, lessonB].map(p => askJSON([{ type: 'text', text: p }], 6000, '{', check)));
+      out = { ...x, ...y, sections: [...(x.sections || []), ...(y.sections || [])], timeline: x.timeline || [], title: x.title, overview: x.overview, objectives: x.objectives };
+    }
     if (b.mode === 'tips') { out.kind = noForm ? 'facts' : 'math'; if (noForm) out.formulas = []; }
     res.json(out);
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
