@@ -41,11 +41,17 @@ function confetti() {
   })();
 }
 
+const TIMEOUT = 60000; // never wait longer than 60 seconds for the AI
 async function api(path, body) {
   for (let t = 0; t < 2; t++) {
     const sent = store.get('code') || '';
-    const r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json', 'x-access-code': sent }, body: JSON.stringify(body) });
-    const d = await r.json().catch(() => ({ error: 'The server took too long. Tap Try again (the free AI can be slow).' }));
+    let r, d;
+    try {
+      r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json', 'x-access-code': sent }, body: JSON.stringify(body), signal: AbortSignal.timeout(TIMEOUT) });
+      d = await r.json().catch(() => ({ error: 'The server took too long. Tap Try again (the free AI can be slow).' }));
+    } catch (e) {
+      throw new Error(/abort|timeout/i.test(e.name + e.message) ? 'This is taking too long, so I stopped waiting. Tap Try again.' : 'Cannot reach the server. Check your internet and try again.');
+    }
     if (r.status === 401 && t === 0) { if ((store.get('code') || '') !== sent) continue; const c = prompt('Enter the access code'); if (!c) throw new Error('Access code required.'); store.set('code', c); continue; }
     if (!r.ok) throw new Error(d.error || 'Request failed');
     return d;
@@ -54,15 +60,14 @@ async function api(path, body) {
 
 /* ---------- navigation ---------- */
 function go(tab) {
-  ['learn', 'practice', 'notes', 'history'].forEach(v => {
+  ['learn', 'practice', 'history'].forEach(v => {
     show('#' + v, v === tab); const b = $('#t' + v[0].toUpperCase() + v.slice(1));
     b.classList.toggle('on', v === tab); b.setAttribute('aria-current', v === tab ? 'page' : 'false');
   });
   if (tab === 'history') drawHistory();
-  if (tab === 'notes' && window.drawNotes) drawNotes();
   scrollTo(0, 0);
 }
-$('#tLearn').onclick = () => go('learn'); $('#tPractice').onclick = () => go('practice'); $('#tNotes').onclick = () => go('notes'); $('#tHistory').onclick = () => go('history');
+$('#tLearn').onclick = () => go('learn'); $('#tPractice').onclick = () => go('practice'); $('#tHistory').onclick = () => go('history');
 
 /* ---------- files ---------- */
 const b64 = f => new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(',')[1]); fr.readAsDataURL(f); });

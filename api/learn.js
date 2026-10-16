@@ -12,31 +12,24 @@ module.exports = async (req, res) => {
     if (!subject || !topic) return res.status(400).json({ error: 'Enter a subject and a topic.' });
     const exam = level.startsWith('SHS') ? 'WASSCE (WAEC)' : level.startsWith('JHS') ? 'BECE (WAEC)' : 'end-of-term primary school exams';
     const ctx = `Subject: ${subject}. Topic: ${topic}. Class: ${level} (${exam}, West African / Ghana syllabus).`;
-    const notes = typeof b.notes === 'string' ? b.notes.slice(0, 16000).trim() : '';
-    const fromNotes = notes ? `
-THE STUDENT'S OWN LESSON NOTES. Teach ONLY from these notes. Keep their terms, wording, examples, definitions and formulas. Do NOT add facts, formulas or examples that are not in the notes, and leave out any part of the topic the notes do not cover. If a note is unclear, make it simpler without changing its meaning.
-<<<NOTES
-${notes}
-NOTES>>>
-` : '';
     const anchor = `Stay strictly on this subject and this topic. Never include content, facts or formulas from any other subject.`;
     const noForm = NOFORM.test(subject), isHist = /history|government|social/i.test(subject);
 
-    const base = `You are an excellent, patient teacher. ${ctx} ${anchor}${fromNotes}
+    const base = `You are an excellent, patient teacher. ${ctx} ${anchor}
 Teach this topic so a ${level} student understands it perfectly. Use very simple English suited to that class, define every new word, and use everyday examples from West Africa. Explain the "why" not just the "what", in short clear sentences.
 Reply with ONLY valid JSON starting with { and ending with }. No markdown, no commentary, no thinking text. Inside text values never use double quotes (use single quotes instead, including in code) and write any code on one line. Keep it compact.`;
     // The lesson is written as two halves at the same time, so it finishes about twice as fast.
     const lessonA = `${base}
-Write the FIRST HALF of the lesson: the basics and foundations of the topic${notes ? ' (the first half of what the notes cover)' : ''}. Give 3 sections (each explanation 60-100 words). If the topic is historical or has a sequence of events, also fill "timeline" (6-10 entries), otherwise leave it as an empty list.
+Write the FIRST HALF of the lesson: the basics and foundations of the topic. Give 3 sections (each explanation 60-100 words). If the topic is historical or has a sequence of events, also fill "timeline" (6-10 entries), otherwise leave it as an empty list.
 {"title":"...","overview":"2-3 simple sentences on what this topic is and why it matters","objectives":["You will be able to..."],"sections":[{"heading":"...","explanation":"...","examples":["..."],"key_points":["..."]}],"timeline":[{"when":"year or period","what":"event"}]}`;
     const lessonB = `${base}
-Write the SECOND HALF of the lesson: the later, harder and exam-focused parts of the topic that come AFTER the basics${notes ? ' (the second half of what the notes cover)' : ''} (do not repeat the basics). Give 3 sections (each explanation 60-100 words). ${noForm ? 'Give 1 model exam answer in worked_examples.' : 'If the subject involves calculations, give 2 worked examples with step-by-step solutions; otherwise give 1 model exam answer.'}
+Write the SECOND HALF of the lesson: the later, harder and exam-focused parts of the topic that come AFTER the basics (do not repeat the basics). Give 3 sections (each explanation 60-100 words). ${noForm ? 'Give 1 model exam answer in worked_examples.' : 'If the subject involves calculations, give 2 worked examples with step-by-step solutions; otherwise give 1 model exam answer.'}
 {"sections":[{"heading":"...","explanation":"...","examples":["..."],"key_points":["..."]}],"worked_examples":[{"question":"...","solution":"step-by-step"}],"key_terms":[{"term":"...","meaning":"..."}],"summary":["..."]}`;
 
     const factRule = noForm
       ? `This subject has NO calculation formulas. Set "formulas" to [] and "no_formula_note" to "none". Instead fill "definitions" with 10-15 key facts a student must memorise for this exact topic: laws, acts, institutions, important names, dates, causes and effects, and key terms${isHist ? '. Also fill "timeline" with the key dates and events for this topic' : ''}.`
       : `FORMULAS: list the formulas, equations, laws and rules a ${level} student needs for THIS topic only, in exams, including rearranged forms, units and constants (up to 25). Only include a formula if it genuinely belongs to this topic and subject. If the topic has no formulas at all, set "formulas" to [] and "no_formula_note" to "none", and put its key laws and facts in "definitions". Write formulas in plain text with Unicode symbols (such as ², √, π, ×, ÷, →, subscripts). Never use LaTeX or backslashes. For each formula give what every symbol means (with units), when to use it, and one short worked example with numbers.`;
-    const tips = `You are an experienced WAEC examiner and teacher. ${ctx} ${anchor}${fromNotes ? fromNotes + 'Base the exam essentials ONLY on these notes: every must-know point, formula and definition must come from them.\n' : ''}
+    const tips = `You are an experienced WAEC examiner and teacher. ${ctx} ${anchor}
 Write the key things a student MUST know before writing an exam on this exact topic. Base it on the syllabus and typical exam patterns; do not invent specific past-paper years or claim exact question frequencies.
 ${factRule}
 Keep every other point short and clear. Reply with ONLY valid JSON starting with { and ending with }. No markdown, no commentary, no thinking text. Inside text values never use double quotes (use single quotes instead, including in code) and write any code on one line:
