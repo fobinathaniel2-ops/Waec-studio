@@ -45,7 +45,7 @@ async function api(path, body) {
   for (let t = 0; t < 2; t++) {
     const sent = store.get('code') || '';
     const r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json', 'x-access-code': sent }, body: JSON.stringify(body) });
-    const d = await r.json().catch(() => ({ error: 'Server error or timeout. Try fewer questions.' }));
+    const d = await r.json().catch(() => ({ error: 'The server took too long. Tap Try again (the free AI can be slow).' }));
     if (r.status === 401 && t === 0) { if ((store.get('code') || '') !== sent) continue; const c = prompt('Enter the access code'); if (!c) throw new Error('Access code required.'); store.set('code', c); continue; }
     if (!r.ok) throw new Error(d.error || 'Request failed');
     return d;

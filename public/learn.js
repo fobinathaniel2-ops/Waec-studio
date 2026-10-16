@@ -133,7 +133,7 @@ function run(subject, topic, level, vid, cache) {
     busy(pane, msg);
     call().then(d => { if (!OK[key](d)) throw new Error('The AI sent back an empty answer.'); draw(d); keepTo(rec, key, d); }).catch(x => fail(pane, x, () => job(key, pane, msg, call, draw)));
   };
-  job('lesson', $('#pLesson'), 'Preparing your lesson. This can take up to a minute.', () => api('/api/learn', { ...body, mode: 'lesson' }), d => renderLesson(d, topic));
+  job('lesson', $('#pLesson'), 'Preparing your lesson. Usually 15 to 40 seconds.', () => api('/api/learn', { ...body, mode: 'lesson' }), d => renderLesson(d, topic));
   job('tips', $('#pTips'), 'Collecting the exam essentials.', () => api('/api/learn', { ...body, mode: 'tips' }), renderTips);
   if (vid) job('videos', $('#pVideo'), 'Finding the most-liked videos.', () => api('/api/videos', body), renderVideos);
 }
