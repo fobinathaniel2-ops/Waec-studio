@@ -41,30 +41,18 @@ function confetti() {
   })();
 }
 
-/* The app never gives up on the AI: a slow or busy answer is simply asked for again, until it arrives.
-   Only real problems (bad key, access code, no credit) stop it and show a message. */
-const PERMANENT = /api key|authentication|access code|invalid|unauthor|credit|payment|limit reached|forbidden/i;
-const note = n => $$('.skel > p, #ltxt').forEach(e => { e.textContent = e.textContent.replace(/ Still working.*$/, '') + ` Still working, try ${n + 1}…`; });
+/* One request per tap. If it fails, the message shows and the user decides when to try again. */
 async function api(path, body) {
-  let codeTried = false;
-  for (let n = 0; ; n++) {
-    if (n > 0) { note(n); await new Promise(ok => setTimeout(ok, Math.min(1500 + n * 1000, 6000))); }
+  for (let t = 0; t < 2; t++) {
     const sent = store.get('code') || '';
     let r, d;
     try {
-      r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json', 'x-access-code': sent }, body: JSON.stringify(body), signal: AbortSignal.timeout(80000) });
-      d = await r.json().catch(() => ({ error: 'slow' }));
-    } catch (e) { continue; } // timeout or no connection: wait and ask again
-    if (r.status === 401) {
-      if (!codeTried && (store.get('code') || '') === sent) { const c = prompt('Enter the access code'); if (!c) throw new Error('Access code required.'); store.set('code', c); }
-      else if (codeTried && (store.get('code') || '') === sent) throw new Error('That access code is not right.');
-      codeTried = true; continue;
-    }
-    if (r.ok) return d;
-    const msg = d.error || 'Request failed';
-    if (r.status >= 500 && !PERMANENT.test(msg)) continue; // busy, slow or unreadable: try again
-    if (r.status === 429 && !PERMANENT.test(msg)) continue;
-    throw new Error(msg);
+      r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json', 'x-access-code': sent }, body: JSON.stringify(body) });
+      d = await r.json().catch(() => ({ error: 'The server took too long. Tap Try again.' }));
+    } catch (e) { throw new Error('Cannot reach the server. Check your internet and tap Try again.'); }
+    if (r.status === 401 && t === 0) { if ((store.get('code') || '') !== sent) continue; const c = prompt('Enter the access code'); if (!c) throw new Error('Access code required.'); store.set('code', c); continue; }
+    if (!r.ok) throw new Error(d.error || 'Request failed');
+    return d;
   }
 }
 
