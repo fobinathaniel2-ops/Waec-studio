@@ -41,20 +41,30 @@ function confetti() {
   })();
 }
 
-const TIMEOUT = 60000; // never wait longer than 60 seconds for the AI
+/* The app never gives up on the AI: a slow or busy answer is simply asked for again, until it arrives.
+   Only real problems (bad key, access code, no credit) stop it and show a message. */
+const PERMANENT = /api key|authentication|access code|invalid|unauthor|credit|payment|limit reached|forbidden/i;
+const note = n => $$('.skel > p, #ltxt').forEach(e => { e.textContent = e.textContent.replace(/ Still working.*$/, '') + ` Still working, try ${n + 1}…`; });
 async function api(path, body) {
-  for (let t = 0; t < 2; t++) {
+  let codeTried = false;
+  for (let n = 0; ; n++) {
+    if (n > 0) { note(n); await new Promise(ok => setTimeout(ok, Math.min(1500 + n * 1000, 6000))); }
     const sent = store.get('code') || '';
     let r, d;
     try {
-      r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json', 'x-access-code': sent }, body: JSON.stringify(body), signal: AbortSignal.timeout(TIMEOUT) });
-      d = await r.json().catch(() => ({ error: 'The server took too long. Tap Try again (the free AI can be slow).' }));
-    } catch (e) {
-      throw new Error(/abort|timeout/i.test(e.name + e.message) ? 'This is taking too long, so I stopped waiting. Tap Try again.' : 'Cannot reach the server. Check your internet and try again.');
+      r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json', 'x-access-code': sent }, body: JSON.stringify(body), signal: AbortSignal.timeout(80000) });
+      d = await r.json().catch(() => ({ error: 'slow' }));
+    } catch (e) { continue; } // timeout or no connection: wait and ask again
+    if (r.status === 401) {
+      if (!codeTried && (store.get('code') || '') === sent) { const c = prompt('Enter the access code'); if (!c) throw new Error('Access code required.'); store.set('code', c); }
+      else if (codeTried && (store.get('code') || '') === sent) throw new Error('That access code is not right.');
+      codeTried = true; continue;
     }
-    if (r.status === 401 && t === 0) { if ((store.get('code') || '') !== sent) continue; const c = prompt('Enter the access code'); if (!c) throw new Error('Access code required.'); store.set('code', c); continue; }
-    if (!r.ok) throw new Error(d.error || 'Request failed');
-    return d;
+    if (r.ok) return d;
+    const msg = d.error || 'Request failed';
+    if (r.status >= 500 && !PERMANENT.test(msg)) continue; // busy, slow or unreadable: try again
+    if (r.status === 429 && !PERMANENT.test(msg)) continue;
+    throw new Error(msg);
   }
 }
 
