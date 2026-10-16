@@ -54,14 +54,15 @@ async function api(path, body) {
 
 /* ---------- navigation ---------- */
 function go(tab) {
-  ['learn', 'practice', 'history'].forEach(v => {
+  ['learn', 'practice', 'notes', 'history'].forEach(v => {
     show('#' + v, v === tab); const b = $('#t' + v[0].toUpperCase() + v.slice(1));
     b.classList.toggle('on', v === tab); b.setAttribute('aria-current', v === tab ? 'page' : 'false');
   });
   if (tab === 'history') drawHistory();
+  if (tab === 'notes' && window.drawNotes) drawNotes();
   scrollTo(0, 0);
 }
-$('#tLearn').onclick = () => go('learn'); $('#tPractice').onclick = () => go('practice'); $('#tHistory').onclick = () => go('history');
+$('#tLearn').onclick = () => go('learn'); $('#tPractice').onclick = () => go('practice'); $('#tNotes').onclick = () => go('notes'); $('#tHistory').onclick = () => go('history');
 
 /* ---------- files ---------- */
 const b64 = f => new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(',')[1]); fr.readAsDataURL(f); });

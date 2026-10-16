@@ -123,8 +123,12 @@ function run(subject, topic, level, vid, cache) {
   const rec = cache ? { ...cache, id: Date.now(), ts: Date.now() } : { id: Date.now(), t: 'lesson', subject, topic, level, ts: Date.now() };
   H.upsert(rec);
   const body = { subject, topic, level };
+  const nm = cache ? (cache.notes ? { title: cache.notes } : null) : ($('#lnotes').checked && window.pickNotes ? pickNotes(subject, topic) : null);
+  if (nm && nm.text) body.notes = nm.text;
+  if (nm) rec.notes = nm.title;
   show('#lform', false); show('#lintro', false); show('#lctx', true); show('#lout', true);
   const pills = $('#lpills'); pills.innerHTML = ''; [subject, topic, level].forEach(x => pills.append(el('span', 'pill', x)));
+  if (nm) pills.append(el('span', 'pill', '📒 From your notes: ' + nm.title));
   show('#lpquiz', false); show('#lpsetup', true); $('#lperr').textContent = '';
   $('.seg button[data-p=pVideo]').hidden = !vid;
   $('.seg button[data-p=pLesson]').click();
