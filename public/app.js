@@ -3,6 +3,10 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
 const show = (t, v) => { (typeof t === 'string' ? $(t) : t).hidden = !v; };
 const loader = { on(m) { $('#ltxt').textContent = m; show('#loader', true); }, off() { show('#loader', false); } };
+/* questions already asked, remembered per subject so the same question never comes back */
+const seenKey = s => 'seen:' + String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 60);
+const seenGet = s => { try { return JSON.parse(localStorage.getItem(seenKey(s)) || '[]'); } catch { return []; } };
+const seenAdd = (s, d) => { try { const all = [...seenGet(s), ...[...(d.objective || []), ...(d.theory || [])].map(x => String(x.q).replace(/\s+/g, ' ').slice(0, 160))]; localStorage.setItem(seenKey(s), JSON.stringify(all.slice(-150))); } catch {} };
 const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
 
 /* ---------- subject colour: the whole app tints itself to the subject ---------- */
@@ -131,7 +135,7 @@ function makeQuiz(R) {
     R.bar.style.setProperty('--p', t ? (n / t * 100) + '%' : '0%');
   };
   function load(d) {
-    quiz = d; answers = {}; tans = {}; bump();
+    quiz = d; answers = {}; tans = {}; bump(); if (window.MathPad) MathPad.setContext(R.label ? R.label() : '', R.qs);
     R.qs.innerHTML = ''; R.result.innerHTML = ''; show(R.result, false); show(R.bar, true);
     if (d.objective.length) R.qs.append(el('h2', 'h2 secH', 'Objective questions'));
     d.objective.forEach((q, i) => {
@@ -150,7 +154,7 @@ function makeQuiz(R) {
     d.theory.forEach((q, i) => {
       const card = el('article', 'q'); card.id = `t${id}-${i}`;
       const head = el('div', 'qh'); head.append(el('span', 'qn', String(i + 1)), el('p', 'qt', `${q.q} (${q.marks} marks)`)); card.append(head);
-      const ta = el('textarea', 'ans'); ta.placeholder = 'Write your answer here'; ta.rows = 5; ta.oninput = () => tans[i] = ta.value; card.append(ta);
+      const ta = el('textarea', 'ans'); ta.placeholder = 'Write your answer here'; ta.rows = 5; ta.oninput = () => tans[i] = ta.value; card.append(ta); if (window.MathPad) MathPad.attach(ta, R.label ? R.label() : '');
       R.qs.append(card);
     });
     tick();
@@ -180,7 +184,7 @@ function makeQuiz(R) {
     const meta = el('div', 'rmeta'); meta.append(el('span', 'pct', `${pct}%`), el('span', 'gradechip', `Grade ${d.grade}`));
     const again = el('button', 'btn', 'Practise again'); again.type = 'button'; again.onclick = () => R.again();
     paper.append(score, meta, el('p', 'note', note), again);
-    R.result.innerHTML = ''; R.result.append(paper); show(R.result, true); show(R.bar, false);
+    R.result.innerHTML = ''; R.result.append(paper); show(R.result, true); show(R.bar, false); if (window.MathPad) MathPad.setContext(null);
     H.upsert({ id: Date.now(), t: 'quiz', subject: R.label ? R.label() : 'Practice', score: d.score, total: d.total, percent: d.percent, grade: d.grade, ts: Date.now() });
     R.result.scrollIntoView({ behavior: 'smooth', block: 'start' });
     if (pct >= 50) confetti();
@@ -232,8 +236,8 @@ $('#psetup').onsubmit = async e => {
       } else text = (await file.text()).slice(0, 40000) + '\n\n' + text;
     }
     if (!text.trim() && !image) throw new Error('Add a file, a photo or some notes first.');
-    const d = await api('/api/generate', { text, image, imageType, subject: $('#pSubject').value, count: $('#pCount').value, type: $('#pType').value, diff: $('#pDiff').value });
-    PQ.load(d); show('#psetup', false); show('#pquiz', true); scrollTo(0, 0);
+    const d = await api('/api/generate', { text, image, imageType, subject: $('#pSubject').value, count: $('#pCount').value, type: $('#pType').value, diff: $('#pDiff').value, seen: seenGet($('#pSubject').value) });
+    seenAdd($('#pSubject').value, d); PQ.load(d); show('#psetup', false); show('#pquiz', true); scrollTo(0, 0);
   } catch (err) { perr(err.message); }
   loader.off();
 };

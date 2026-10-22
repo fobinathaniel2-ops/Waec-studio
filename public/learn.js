@@ -161,8 +161,8 @@ $('#lpsetup').onsubmit = async e => {
   loader.on('Writing your questions… this can take up to a minute');
   try {
     const d = await api('/api/generate', { text: (lessonText + '\n' + tipsText).slice(0, 38000), subject: `${$('#lsubject').value} - ${$('#ltopic').value}`, level: `${stage} ${year}`,
-      count: $('#lpCount').value, type: $('#lpType').value, diff: $('#lpDiff').value });
-    LQ.load(d); show('#lpsetup', false); show('#lpquiz', true); $('#lout').scrollIntoView({ block: 'start' });
+      count: $('#lpCount').value, type: $('#lpType').value, diff: $('#lpDiff').value, seen: seenGet(`${$('#lsubject').value} ${$('#ltopic').value}`) });
+    seenAdd(`${$('#lsubject').value} ${$('#ltopic').value}`, d); LQ.load(d); show('#lpsetup', false); show('#lpquiz', true); $('#lout').scrollIntoView({ block: 'start' });
   } catch (x) { err.textContent = x.message; }
   loader.off();
 };
