@@ -154,7 +154,7 @@ function makeQuiz(R) {
     d.theory.forEach((q, i) => {
       const card = el('article', 'q'); card.id = `t${id}-${i}`;
       const head = el('div', 'qh'); head.append(el('span', 'qn', String(i + 1)), el('p', 'qt', `${q.q} (${q.marks} marks)`)); card.append(head);
-      const ta = el('textarea', 'ans'); ta.placeholder = 'Write your answer here'; ta.rows = 5; ta.oninput = () => tans[i] = ta.value; card.append(ta); if (window.MathPad) MathPad.attach(ta, R.label ? R.label() : '');
+      const ta = el('textarea', 'ans'); ta.placeholder = 'Write your answer here'; ta.rows = 5; ta.oninput = () => tans[i] = ta.value; card.append(ta); if (window.MathPad) MathPad.attach(ta, R.label ? R.label() : ''); if (window.Scan) Scan.attach(ta, () => R.label ? R.label() : '');
       R.qs.append(card);
     });
     tick();
