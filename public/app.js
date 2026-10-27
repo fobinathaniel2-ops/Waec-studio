@@ -128,14 +128,14 @@ $('#hclear').onclick = () => { if (confirm('Clear all your study history?')) { H
 /* ---------- quiz engine (used by Practice and by Learn) ---------- */
 let uid = 0;
 function makeQuiz(R) {
-  const id = ++uid; let quiz = null, answers = {}, tans = {};
+  const id = ++uid; let quiz = null, answers = {}, tans = {}, tsheets = {};
   const tick = () => {
     const n = Object.keys(answers).length, t = quiz.objective.length;
     R.count.textContent = t ? `${n} of ${t} answered` : 'Write your answers, then submit';
     R.bar.style.setProperty('--p', t ? (n / t * 100) + '%' : '0%');
   };
   function load(d) {
-    quiz = d; answers = {}; tans = {}; bump(); if (window.MathPad) MathPad.setContext(R.label ? R.label() : '', R.qs);
+    quiz = d; answers = {}; tans = {}; tsheets = {}; bump(); if (window.MathPad) MathPad.setContext(R.label ? R.label() : '', R.qs);
     R.qs.innerHTML = ''; R.result.innerHTML = ''; show(R.result, false); show(R.bar, true);
     if (d.objective.length) R.qs.append(el('h2', 'h2 secH', 'Objective questions'));
     d.objective.forEach((q, i) => {
@@ -154,7 +154,7 @@ function makeQuiz(R) {
     d.theory.forEach((q, i) => {
       const card = el('article', 'q'); card.id = `t${id}-${i}`;
       const head = el('div', 'qh'); head.append(el('span', 'qn', String(i + 1)), el('p', 'qt', `${q.q} (${q.marks} marks)`)); card.append(head);
-      const ta = el('textarea', 'ans'); ta.placeholder = 'Write your answer here'; ta.rows = 5; ta.oninput = () => tans[i] = ta.value; card.append(ta); if (window.MathPad) MathPad.attach(ta, R.label ? R.label() : ''); if (window.Scan) Scan.attach(ta, () => R.label ? R.label() : '');
+      const ta = el('textarea', 'ans'); ta.placeholder = 'Write your answer here'; ta.rows = 5; ta.oninput = () => tans[i] = ta.value; card.append(ta); if (window.MathPad) MathPad.attach(ta, R.label ? R.label() : ''); if (window.Scan) Scan.attach(ta, () => R.label ? R.label() : ''); if (window.Sheets) Sheets.attach(ta, list => { tsheets[i] = list; });
       R.qs.append(card);
     });
     tick();
@@ -169,7 +169,7 @@ function makeQuiz(R) {
       feedback(card, x.isCorrect, (x.isCorrect ? '' : (x.picked ? `The answer is ${x.correct}. ` : `You did not answer. The answer is ${x.correct}. `)) + x.explanation);
     });
     d.theory.forEach(x => {
-      const card = $(`#t${id}-${x.id}`); $('textarea', card).disabled = true;
+      const card = $(`#t${id}-${x.id}`); $('textarea', card).disabled = true; $$('.kbrow button, .shthumb-x', card).forEach(b => b.disabled = true);
       const f = el('div', 'fb ' + (x.awarded >= x.marks / 2 ? 'good' : 'bad'));
       f.append(el('strong', null, `${x.awarded} of ${x.marks} marks`), el('span', null, ' ' + x.feedback)); card.append(f);
       const det = el('details', 'more'); det.append(el('summary', null, 'Marking scheme and model answer'));
@@ -194,7 +194,7 @@ function makeQuiz(R) {
     const left = quiz.objective.length - Object.keys(answers).length;
     if (left && !confirm(`${left} question${left > 1 ? 's' : ''} unanswered. Submit anyway?`)) return;
     loader.on('Marking your work…');
-    try { paint(await api('/api/mark', { token: quiz.token, answers, theory: tans })); } catch (e) { alert(e.message); }
+    try { const sheets = {}; Object.entries(tsheets).forEach(([k, v]) => { if (v && v.length) sheets[k] = v.map(s => ({ img: s.img, note: String(s.note || '').slice(0, 1500), name: s.name })); }); paint(await api('/api/mark', { token: quiz.token, answers, theory: tans, sheets })); } catch (e) { alert(e.message); }
     loader.off();
   };
   return { load };
